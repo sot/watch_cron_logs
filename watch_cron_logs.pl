@@ -8,39 +8,48 @@
 use warnings;
 use File::Basename;
 use Getopt::Long;
-# use Mail::Send;
+use Config::General;
+use Data::Dumper;
 
 sub run($) {
   my $command = shift;
-  print "$command\n" if $opt{loud};
-  system($command) == 0 or die $!;
+  print "$command\n" if $opt{loud} or $opt{dryrun};
+  unless ($opt{dryrun}) {
+      system($command) == 0 or die $!;
+  }
 }
 
-our %opt = (erase => 0,
-	    loud => 1,
-	    subject => 'TST ops cron outputs',
-	    logs   => 'Logs',
-	   );
+our %opt = (config => 'data/default.config');
 
 GetOptions (\%opt,
 	    'logs=s',
-	    'recipients=s',
+	    'config=s',
 	    'subject=s',
 	    'erase!',
 	    'loud!',
 	    'help!',
+	    'dryrun!',
 	   );
 
-if ( $opt{help} )
-{
-  use lib '/proj/axaf/simul/lib/perl';
-  require 'usage.pl';
-  usage(0);
+if ( $opt{help} ) {
+    use lib '/proj/axaf/simul/lib/perl';
+    require 'usage.pl';
+    usage(0);
 }
 
-our $n_days = 7;
-our $logs = $opt{logs};
-our $MASTER_LOG = 'MASTER.log';
+%opt = (ParseConfig(-ConfigFile => $opt{config}), %opt) if (-r $opt{config});
+
+our $n_days     = $opt{n_days};
+our $logs       = $opt{logs};
+our $master_log = $opt{master_log};
+
+# Assemble the grep checks that are done on specified log files
+while (($file, $val) = each %{$opt{check}{error}}) {
+    @{$error_rexp{$file}} = ref $val eq "ARRAY" ? @{$val} : ($val);
+}
+while (($file, $val) = each %{$opt{check}{required}}) {
+    @{$required_rexp{$file}} = ref $val eq "ARRAY" ? @{$val} : ($val);
+}
 
 # Slide every daily directory up by one and delete 8th day if there
 for $i (reverse (0 .. $n_days-1)) {
@@ -50,28 +59,67 @@ for $i (reverse (0 .. $n_days-1)) {
 
 run "rm -rf $logs/daily.$n_days" if -e "$logs/daily.$n_days";
 
-# Make directory for newest log data and grab all such log files
+# Make directory for newest log data
 
 run "mkdir $logs/daily.0";
-@files = glob("$logs/*");
+
 
 # Concat log info into a single MASTER log file in the same directory
+# and accumulate log entries for each cron task for checking later
 
-@ARGV = @files;
-our $master_file = "$logs/daily.0/$MASTER_LOG";
-open MASTER, "> $master_file" or die "Could not open $master_file";
-select MASTER;
-our $file = "";
-while (<ARGV>) {
-    # If the input ARGV file has changed then print header
-    if ($ARGV ne $file) {
-	print "\n\n" if $file;
-	$file = $ARGV;
-	printf "%s %s %s\n", "*"x20, basename($file), "*"x(30-length(basename($file)));
-    }
-    print;
+@files = grep {-r and not -d} glob("$logs/*");	# Grab all log files
+@ARGV =  @files;			# Set up to read all log file data
+
+# Initialize log strings and errors
+foreach $file (@files) {
+    @{$log{$file}} = ();
+    @{$errors{$file}} = ();
 }
-close MASTER;
+
+# Now actually read the data and write to master log file, with headers
+# indicating each new log file
+
+our $file = "";
+our $line;
+while (<ARGV>) {
+    # If the input ARGV file has changed then its a new log file
+    if ($ARGV ne $file) {
+	$file = $ARGV;
+	$line = 1;
+    }
+    push @{$log{$file}}, $_;	# Accumulate log entries for each cron task for checking later
+    foreach $rexp (@{$error_rexp{basename($file)}}, @{$error_rexp{'*'}}) {
+	push @{$errors{$file}}, "** ERROR - Matched '$rexp' at line $line\n" if /$rexp/i;
+    }
+    $line++;
+}
+
+# Make sure that the required outputs are there
+foreach $file (@files) {
+    foreach $rexp (@{$required_rexp{basename($file)}}) {
+	push @{$errors{$file}}, "** ERROR - No instance of '$rexp' in log output\n"
+	  unless grep /$rexp/i, @{$log{$file}};
+    }
+}
+
+# Create the master log file unless this is a dry run, otherwise just print to STDOUT
+
+our $master_file = "$logs/daily.0/$master_log";
+unless ($opt{dryrun}) {
+    open MASTER, "> $master_file" or die "Could not open $master_file";
+    select MASTER;
+}
+foreach $file (@files) {
+    next unless @{$log{$file}};	# No output if log file is empty
+    printf "%s %s %s\n", "*"x20, basename($file), "*"x(30-length(basename($file)));
+    if (@{$errors{$file}}) {
+	print @{$errors{$file}};
+	print "*"x60,"\n";
+    }
+    print @{$log{$file}};
+    print "\n\n";
+}
+close MASTER unless $opt{dryrun};
 select STDOUT;
 
 # Move all log files in $logs to $logs/daily.0 and touch to create
@@ -80,30 +128,34 @@ select STDOUT;
 foreach (@files) {
     next if /daily.\d\Z/;
     if ($opt{erase}) {
-	run "mv $_ $logs/daily.0 ; touch $_; chmod g+w $_";
+	run "mv $_ $logs/daily.0 ; touch $_; chgrp aspect $_; chmod g+w $_";
     } else {
 	run "cp $_ $logs/daily.0/";
     }
 }
 
-# Email "notifications", which is currently just a copy of the $MASTER_LOG file
+# Email "notifications", which is currently just a copy of the $master_log file
 
-# @ARGV = ($master_file);
-# our $master = '';
-# while (<ARGV>) { $master .= $_; }
-
-if (defined $opt{recipients}) {
-    open EMAIL, "$opt{recipients}" or die "Could not open recipients file $opt{recipients}";
-    while (<EMAIL>) {
-	chomp;
-	next unless /\S/;
-	s/\s//g;
-	push @addr, $_;
-    }
-    close EMAIL;
-
-    my $addr_list = join(',', @addr);
+if (defined $opt{daily}) {
+    my $addr_list = ref($opt{daily}) eq "ARRAY" ? join(',', @{$opt{daily}}) : $opt{daily};
     run "mail -s \"$opt{subject}\" $addr_list < $master_file";
+}
+
+# Now check contents of log files and send alerts (probably pagers) if needed
+
+if (defined $opt{alert}) {
+    my $addr_list = ref($opt{alert}) eq "ARRAY" ? join(',', @{$opt{alert}}) : $opt{alert};
+    my $cmd = "mail -s \"$opt{subject}: ALERT\" $addr_list";
+    unless ($opt{dryrun}) {
+	open MAIL, "| $cmd"
+	  or die "Could not start mail to send alert notification";
+	select MAIL;
+    } 
+    print STDOUT "$cmd\n" if $opt{loud};
+    print "Errors in files: \n";
+    map {print basename($_),"\n" if (@{$errors{$_}})} @files;
+    close MAIL unless $opt{dryrun};
+    select STDOUT;
 }
 
 =head1 NAME
@@ -132,9 +184,16 @@ Erase contents of log files each day
 
 Show exactly what watch_cron_logs is doing
 
-=item B<-recipients <recipients_list_file>>
+=item B<-dryrun>
 
-Email notifications to addresses in <recipients_list_file>
+Print log file summary to screen and print warnings, but do not actually
+create any files or send emails
+
+=item B<-config <config_file>>
+
+Configuration file controlling behavior of watch_cron_logs.  Specifies defaults
+for command line options as well as daily and alert email recipients, and 
+criteria for issuing alerts.  See config file for documentation.
 
 =item B<-subject <email_subject>>
 
