@@ -80,7 +80,7 @@ select STDOUT;
 foreach (@files) {
     next if /daily.\d\Z/;
     if ($opt{erase}) {
-	run "mv $_ $logs/daily.0 ; touch $_";
+	run "mv $_ $logs/daily.0 ; touch $_; chmod g+w $_";
     } else {
 	run "cp $_ $logs/daily.0/";
     }
