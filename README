@@ -1,0 +1,9 @@
+Keep a 7-day daily archive of log outputs from cron jobs
+ 
+# Author:  T. Aldcroft
+# Created: 29-July-2004
+
+Example:
+
+/proj/sot/ska/bin/watch_cron_logs.pl -loud -recipients /proj/sot/ska/data/watch_cron_logs/recip.dat -logs /proj/rac/ops/Logs
+
