@@ -44,11 +44,10 @@ our $logs       = $opt{logs};
 our $master_log = $opt{master_log};
 
 # Assemble the grep checks that are done on specified log files
-while (($file, $val) = each %{$opt{check}{error}}) {
-    @{$error_rexp{$file}} = ref $val eq "ARRAY" ? @{$val} : ($val);
-}
-while (($file, $val) = each %{$opt{check}{required}}) {
-    @{$required_rexp{$file}} = ref $val eq "ARRAY" ? @{$val} : ($val);
+foreach (qw(error required_always required_when_output)) {
+    while (($file, $val) = each %{$opt{check}{$_}}) {
+	@{$rexp{$_}{$file}} = ref $val eq "ARRAY" ? @{$val} : ($val);
+    }
 }
 
 # Slide every daily directory up by one and delete 8th day if there
@@ -88,17 +87,22 @@ while (<ARGV>) {
 	$line = 1;
     }
     push @{$log{$file}}, $_;	# Accumulate log entries for each cron task for checking later
-    foreach $rexp (@{$error_rexp{basename($file)}}, @{$error_rexp{'*'}}) {
+    foreach $rexp (@{$rexp{error}{basename($file)}}, @{$rexp{error}{'*'}}) {
 	push @{$errors{$file}}, "** ERROR - Matched '$rexp' at line $line\n" if /$rexp/i;
     }
     $line++;
 }
 
 # Make sure that the required outputs are there
-foreach $file (@files) {
-    foreach $rexp (@{$required_rexp{basename($file)}}) {
-	push @{$errors{$file}}, "** ERROR - No instance of '$rexp' in log output\n"
-	  unless grep /$rexp/i, @{$log{$file}};
+foreach $req (qw(required_always required_when_output)) {
+    foreach $file (@files) {
+	# If there is no output, skip file for 'required_when_output' checks
+	next if (not @{$log{$file}} and $req eq 'required_when_output'); 
+
+	foreach $rexp (@{$rexp{$req}{basename($file)}}) {
+	    push @{$errors{$file}}, "** ERROR - No instance of '$rexp' in log output\n"
+	      unless grep /$rexp/i, @{$log{$file}};
+	}
     }
 }
 
@@ -110,7 +114,7 @@ unless ($opt{dryrun}) {
     select MASTER;
 }
 foreach $file (@files) {
-    next unless @{$log{$file}};	# No output if log file is empty
+    next unless @{$log{$file}} or @{$errors{$file}};	# No output if log file is empty
     printf "%s %s %s\n", "*"x20, basename($file), "*"x(30-length(basename($file)));
     if (@{$errors{$file}}) {
 	print @{$errors{$file}};
@@ -144,18 +148,26 @@ if (defined $opt{daily}) {
 # Now check contents of log files and send alerts (probably pagers) if needed
 
 if (defined $opt{alert}) {
-    my $addr_list = ref($opt{alert}) eq "ARRAY" ? join(',', @{$opt{alert}}) : $opt{alert};
-    my $cmd = "mail -s \"$opt{subject}: ALERT\" $addr_list";
-    unless ($opt{dryrun}) {
-	open MAIL, "| $cmd"
-	  or die "Could not start mail to send alert notification";
-	select MAIL;
-    } 
-    print STDOUT "$cmd\n" if $opt{loud};
-    print "Errors in files: \n";
-    map {print basename($_),"\n" if (@{$errors{$_}})} @files;
-    close MAIL unless $opt{dryrun};
-    select STDOUT;
+    # Check if there were any errors and issue alerts if so
+    my @err_files = grep { @{$errors{$_}} } @files;
+
+    if (@err_files) {
+        # Build the address list and mail command for sending alerts
+	my $addr_list = ref($opt{alert}) eq "ARRAY" ? join(',', @{$opt{alert}}) : $opt{alert};
+	my $cmd = "mail -s \"$opt{subject}: ALERT\" $addr_list";
+
+	# If not dry run then do mail command else just print errors to stdout
+	unless ($opt{dryrun}) {
+	    open MAIL, "| $cmd"
+	      or die "Could not start mail to send alert notification";
+	    select MAIL;
+	} 
+	print STDOUT "$cmd\n" if $opt{loud};
+	print "Errors in files: \n";
+	map {print basename($_),"\n" } @err_files;
+	close MAIL unless $opt{dryrun};
+	select STDOUT;
+    }
 }
 
 =head1 NAME
