@@ -26,7 +26,7 @@ GetOptions (\%opt,
 	    'logs=s',
 	    'recipients=s',
 	    'subject=s',
-	    'copy!',
+	    'erase!',
 	    'loud!',
 	    'help!',
 	   );
