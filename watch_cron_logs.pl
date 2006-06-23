@@ -147,9 +147,10 @@ if (defined $opt{daily}) {
 
 # Now check contents of log files and send alerts (probably pagers) if needed
 
+my @err_files;
 if (defined $opt{alert}) {
     # Check if there were any errors and issue alerts if so
-    my @err_files = grep { @{$errors{$_}} } @files;
+    @err_files = grep { @{$errors{$_}} } @files;
 
     if (@err_files) {
         # Build the address list and mail command for sending alerts
@@ -169,6 +170,8 @@ if (defined $opt{alert}) {
 	select STDOUT;
     }
 }
+
+exit( scalar @err_files );
 
 =head1 NAME
 
