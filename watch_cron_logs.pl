@@ -200,6 +200,10 @@ Erase contents of log files each day
 
 Show exactly what watch_cron_logs is doing
 
+=item B<-email>
+
+Send emails (default).  Disable via config file or with -noemail.  
+
 =item B<-dryrun>
 
 Print log file summary to screen and print warnings, but do not actually
@@ -242,7 +246,8 @@ also do specific error detection and email notification.
  logs         /proj/rac/ops/Logs      # Location of log files
  n_days       7                       # Number of days to accumulate daily copies of logs
  master_log   Master.log              # Name of composite master log file
- dryrun	     0                       # Dry run only
+ dryrun	      0                       # Dry run only
+ email        1                       # Send emails
 
  # Email addresses that receive daily copy of master (composite) log file
 
