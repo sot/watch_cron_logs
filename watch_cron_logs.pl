@@ -152,8 +152,6 @@ send_mail(mail_list => $opt{notify},
 	  loud      => $opt{loud},
 	  dryrun    => $opt{dryrun});
   
-  if ($opt{notify} and not $opt{dryrun});
-
 # Now check contents of log files and send alerts (probably pagers) if needed
 
 my @err_files;
