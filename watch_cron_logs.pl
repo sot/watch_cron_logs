@@ -251,13 +251,13 @@ also do specific error detection and email notification.
 
  # Email addresses that receive daily copy of master (composite) log file
 
- notify	     aldcroft@head.cfa.harvard.edu
- notify	     jeanconn@head.cfa.harvard.edu
+ notify	     person1@address
+ notify	     person2@address
 
  # Email addresses (pagers) that get reports of errors
 
- alert        6177214364@vtext.com          # Tom
- alert	     8885312934@archwireless.net   # Jean
+ alert        pager1@address
+ alert	      pager2@address
 
  # Specify checks to be done on log files.
  # The <error> list are perl regular expressions.  The value of '*'
