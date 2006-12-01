@@ -32,6 +32,7 @@ GetOptions (\%opt,
 	    'subject=s',
 	    'erase!',
 	    'email!',
+	    'printerror!',
 	    'loud!',
 	    'help!',
 	    'dryrun!',
@@ -92,9 +93,21 @@ while (<ARGV>) {
 	$file = $ARGV;
 	$line = 1;
     }
-    push @{$log{$file}}, $_;	# Accumulate log entries for each cron task for checking later
-    foreach $rexp (@{$rexp{error}{basename($file)}}, @{$rexp{error}{'*'}}) {
-	push @{$errors{$file}}, "** ERROR - Matched '$rexp' at line $line\n" if /$rexp/i;
+    if ($opt{printerror}){
+	my $textline = $_;
+	push @{$log{$file}}, $textline;     # Accumulate log entries for each cron task for checking later
+	foreach $rexp (@{$rexp{error}{basename($file)}}, @{$rexp{error}{'*'}}) {
+	    if ($textline =~ /$rexp/i){
+		push @{$errors{$file}}, "** ERROR - line $line: $textline";
+	    }
+	}
+    }
+    else{
+	
+	push @{$log{$file}}, $_;	# Accumulate log entries for each cron task for checking later
+	foreach $rexp (@{$rexp{error}{basename($file)}}, @{$rexp{error}{'*'}}) {
+	    push @{$errors{$file}}, "** ERROR - Matched '$rexp' at line $line\n" if /$rexp/i;
+	}
     }
     $line++;
 }
@@ -162,14 +175,31 @@ if (defined $opt{alert}) {
     # Check if there were any errors and issue alerts if so
     if (@err_files = grep { @{$errors{$_}} } @files) {
 	my $out = "Errors in files: \n";
-	$out .=  basename($_) . "\n" for @err_files;
 
-	send_mail(addr_list => $opt{alert},
-		  subject   => "$opt{subject}: ALERT",
-		  message   => $out,
-		  loud      => $opt{loud},
-		  dryrun    => $opt{dryrun} || not $opt{email});
+        for my $file (@err_files){
+            $out .= "$file: \n";
+            if (defined $opt{printerror}){
+                for my $error_line (@{$errors{$file}}){
+                    $out .= "$error_line";
+                }
+            }
+
+            $out .= "\n";
+        }
+
+        $out .= "\n";
+	
+	
+        send_mail(addr_list => $opt{alert},
+                  subject   => "$opt{subject}: ALERT",
+                  message   => $out,
+                  loud      => $opt{loud},
+                  dryrun    => $opt{dryrun} || not $opt{email});
+	
     }
+    
+
+
 }
 
 exit( scalar @err_files );
