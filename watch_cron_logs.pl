@@ -239,6 +239,12 @@ Send emails (default).  Disable via config file or with -noemail.
 Print log file summary to screen and print warnings, but do not actually
 create any files or send emails
 
+=item B<-printerror>
+
+Toggles between the two error printing options. 
+0 (default) prints information about which line of the file has an error and which regular expression was matched
+1 prints error text directly from the log file
+
 =item B<-config <config_file>>
 
 Configuration file controlling behavior of watch_cron_logs.  Specifies defaults
@@ -277,7 +283,7 @@ also do specific error detection and email notification.
  n_days       7                       # Number of days to accumulate daily copies of logs
  master_log   Master.log              # Name of composite master log file
  dryrun	      0                       # Dry run only
- email        1                       # Send emails
+ email        1                       # Send emails                    
 
  # Email addresses that receive daily copy of master (composite) log file
 
