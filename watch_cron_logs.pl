@@ -93,20 +93,14 @@ while (<ARGV>) {
 	$file = $ARGV;
 	$line = 1;
     }
-    if ($opt{printerror}){
-	my $textline = $_;
-	push @{$log{$file}}, $textline;     # Accumulate log entries for each cron task for checking later
-	foreach $rexp (@{$rexp{error}{basename($file)}}, @{$rexp{error}{'*'}}) {
-	    if ($textline =~ /$rexp/i){
-		push @{$errors{$file}}, "** ERROR - line $line: $textline";
-	    }
-	}
-    }
-    else{
-	
-	push @{$log{$file}}, $_;	# Accumulate log entries for each cron task for checking later
-	foreach $rexp (@{$rexp{error}{basename($file)}}, @{$rexp{error}{'*'}}) {
-	    push @{$errors{$file}}, "** ERROR - Matched '$rexp' at line $line\n" if /$rexp/i;
+    my $textline = $_;
+    push @{$log{$file}}, $textline;     # Accumulate log entries for each cron task for checking later
+    foreach $rexp (@{$rexp{error}{basename($file)}}, @{$rexp{error}{'*'}}) {
+
+	if ($textline =~ /$rexp/i){
+	    my $errortext = $opt{printerror} ? "** ERROR - line $line: $textline"
+		                             : "** ERROR - Matched '$rexp' at line $line\n";
+	    push @{$errors{$file}}, $errortext;
 	}
     }
     $line++;
@@ -178,7 +172,7 @@ if (defined $opt{alert}) {
 
         for my $file (@err_files){
             $out .= "$file: \n";
-            if (defined $opt{printerror}){
+            if ($opt{printerror}){
                 for my $error_line (@{$errors{$file}}){
                     $out .= "$error_line";
                 }
