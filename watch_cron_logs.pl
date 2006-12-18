@@ -26,6 +26,9 @@ our %opt = (config   => 'data/default.config',
 	    email    =>  1,
 	   );
 
+# Don't see a need to make this as an option at this time
+my $error_line_limit = 50;
+
 GetOptions (\%opt,
 	    'logs=s',
 	    'config=s',
@@ -166,22 +169,36 @@ send_mail(mail_list => $opt{notify},
 
 my @err_files;
 if (defined $opt{alert}) {
+
     # Check if there were any errors and issue alerts if so
+
+    # default is to just print which lines had errors
     if (@err_files = grep { @{$errors{$_}} } @files) {
 	my $out = "Errors in files: \n";
 
-        for my $file (@err_files){
-            $out .= "$file: \n";
-            if ($opt{printerror}){
-                for my $error_line (@{$errors{$file}}){
-                    $out .= "$error_line";
-                }
-            }
+	# print the name of each file with errors
+	for my $file (@err_files){
+	    $out .= "$file \n";
 
-            $out .= "\n";
-        }
-
-        $out .= "\n";
+	    # if printerror is set, print the actual lines that have the errors
+	    # but not more than $error_line_limit lines
+	    if ($opt{printerror}){
+		my $error_cnt = 0;
+		for my $error_line (@{$errors{$file}}){
+		    $error_cnt++;
+		    # limit line prints to 
+		    if ($error_cnt < ($error_line_limit+1)){
+			$out .= "$error_line";
+		    }
+		    else{
+			$out .= "More than $error_line_limit errors\n";
+			last;
+		    }
+		}
+		$out .= "\n";
+	    }
+	}
+	$out .= "\n";
 	
 	
         send_mail(addr_list => $opt{alert},
