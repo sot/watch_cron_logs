@@ -213,7 +213,7 @@ if (defined $opt{alert}) {
 
 }
 
-exit( scalar @err_files );
+
 
 =head1 NAME
 
