@@ -60,18 +60,26 @@ foreach (qw(error required_always required_when_output)) {
     }
 }
 
-# Slide every daily directory up by one and delete 8th day if there
-for $i (reverse (0 .. $n_days-1)) {
-    $i1 = sprintf "%d", $i+1;
-    run "mv $logs/daily.$i $logs/daily.$i1" if -e "$logs/daily.$i";
+my $last_master_file = "$logs/daily.0/$master_log";
+my $same_day_update = 0;
+if (-e $last_master_file){
+    my $creation_time = (stat $last_master_file)[10];
+    my $now = time;
+    if (($now - $creation_time) < 86400){
+        $same_day_update = 1;
+    }
 }
 
-run "rm -rf $logs/daily.$n_days" if -e "$logs/daily.$n_days";
-
-# Make directory for newest log data
-
-run "mkdir $logs/daily.0";
-
+if (not $same_day_update){
+    # Slide every daily directory up by one and delete 8th day if there
+    for $i (reverse (0 .. $n_days-1)) {
+        $i1 = sprintf "%d", $i+1;
+        run "mv $logs/daily.$i $logs/daily.$i1" if -e "$logs/daily.$i";
+    }
+    run "rm -rf $logs/daily.$n_days" if -e "$logs/daily.$n_days";
+    # Make directory for newest log data
+    run "mkdir $logs/daily.0";
+}
 
 # Concat log info into a single MASTER log file in the same directory
 # and accumulate log entries for each cron task for checking later
@@ -126,7 +134,7 @@ foreach $req (qw(required_always required_when_output)) {
 
 our $master_file = "$logs/daily.0/$master_log";
 unless ($opt{dryrun}) {
-    open MASTER, "> $master_file" or die "Could not open $master_file";
+    open MASTER, ">> $master_file" or die "Could not open $master_file";
     select MASTER;
 }
 foreach $file (@files) {
@@ -147,13 +155,25 @@ select STDOUT;
 
 foreach (@files) {
     next if /daily.\d\Z/;
+    my $fname = basename($_);
     if ($opt{erase}) {
-	run "mv $_ $logs/daily.0";
+        if ($same_day_update){
+            run "cat $_ >> $logs/daily.0/$fname";
+            run "rm $_";
+        }
+        else{
+            run "mv $_ $logs/daily.0";
+        }
 	run "touch $_";
 	run "chgrp aspect $_";
 	run "chmod g+w $_";
     } else {
-	run "cp $_ $logs/daily.0/";
+        if ($same_day_update){
+            run "cat $_ >> $logs/daily.0/$fname";
+        }
+        else{
+            run "cp $_ $logs/daily.0/";
+        }
     }
 }
 
