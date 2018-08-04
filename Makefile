@@ -33,5 +33,16 @@ install:
 	mkdir -p $(INSTALL_DOC)
 	pod2html watch_cron_logs.pl > $(INSTALL_DOC)/index.html
 	rm -f pod2htm?.tmp
+
+# Install watch_cron_logs3.pl using "skare3" convention: put into SKA_ARCH_OS/bin
+# and launched with /usr/bin/env perl instead of hardwired /usr/bin/env /proj/sot/ska/bin/perl
+install3:
+	echo '#!/usr/bin/env perl' > watch_cron_logs3.pl
+	tail -n +2 watch_cron_logs.pl >> watch_cron_logs3.pl
+	chmod +x watch_cron_logs3.pl
+	cp -p watch_cron_logs3.pl $(SKA_ARCH_OS)/bin/
+	rm watch_cron_logs3.pl
+
+
 clean:
 	rm -r bin data doc
