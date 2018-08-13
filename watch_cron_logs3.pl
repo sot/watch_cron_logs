@@ -1,4 +1,4 @@
-#!/usr/bin/env /proj/sot/ska/bin/perl
+#!/usr/bin/env perlska
 
 # Keep a 7-day daily archive of log outputs from cron jobs
 # 
