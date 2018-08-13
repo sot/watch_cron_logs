@@ -8,7 +8,7 @@
 use warnings;
 use File::Basename;
 use Getopt::Long;
-use Config::General;
+use Config::General qw( ParseConfig );
 use Data::Dumper;
 use Mail::Send;
 use IO::All;
