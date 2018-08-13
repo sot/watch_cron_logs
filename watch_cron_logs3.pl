@@ -1,4 +1,4 @@
-#!/usr/bin/env perlska
+#!/usr/bin/env perl
 
 # Keep a 7-day daily archive of log outputs from cron jobs
 # 
