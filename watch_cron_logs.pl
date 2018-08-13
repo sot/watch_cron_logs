@@ -41,11 +41,7 @@ GetOptions (\%opt,
 	    'dryrun!',
 	   );
 
-if ( $opt{help} ) {
-    use lib '/proj/axaf/simul/lib/perl';
-    require 'usage.pl';
-    usage(0);
-}
+help(2) if $opt{help};
 
 %opt = (ParseConfig(-ConfigFile => $opt{config}), %opt) if (-r $opt{config});
 
@@ -213,7 +209,23 @@ if (defined $opt{alert}) {
 
 }
 
+#########################################################################
+sub help {
+#########################################################################
+  my ( $verbose ) = @_;
 
+  my $exitval = 0;
+
+  if ( $verbose == -1 )
+      {
+    $exitval = 'NOEXIT';
+    $verbose = 2;
+}
+  require Pod::Usage;
+  Pod::Usage::pod2usage( { -exitval => $exitval, -verbose => $verbose } );
+}
+
+__END__
 
 =head1 NAME
 
