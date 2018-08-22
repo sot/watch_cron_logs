@@ -5,7 +5,7 @@ TASK = watch_cron_logs
 FLIGHT_ENV = SKA
 
 # Set the names of all files that get installed
-BIN = watch_cron_logs.pl
+BIN = watch_cron_logs3.pl
 DATA = default.config TST.config
 
 include /proj/sot/ska/include/Makefile.FLIGHT
@@ -27,22 +27,13 @@ TEST_DEP =
 # NO TESTs defined!
 test: check_install $(TEST_DEP) install
 
+
 install:
 	mkdir -p $(INSTALL_BIN); rsync --times --cvs-exclude $(BIN) $(INSTALL_BIN)/
 	mkdir -p $(INSTALL_DATA); rsync --times --cvs-exclude $(DATA) $(INSTALL_DATA)/
 	mkdir -p $(INSTALL_DOC)
-	pod2html watch_cron_logs.pl > $(INSTALL_DOC)/index.html
+	pod2html watch_cron_logs3.pl > $(INSTALL_DOC)/index.html
 	rm -f pod2htm?.tmp
-
-# Install watch_cron_logs3.pl using "skare3" convention: put into SKA_ARCH_OS/bin
-# and launched with /usr/bin/env perl instead of hardwired /usr/bin/env /proj/sot/ska/bin/perl
-install3:
-	echo '#!/usr/bin/env perl' > watch_cron_logs3.pl
-	tail -n +2 watch_cron_logs.pl >> watch_cron_logs3.pl
-	chmod +x watch_cron_logs3.pl
-	cp -p watch_cron_logs3.pl $(SKA_ARCH_OS)/bin/
-	rm watch_cron_logs3.pl
-
 
 clean:
 	rm -r bin data doc
