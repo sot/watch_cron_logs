@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Keep a 7-day daily archive of log outputs from cron jobs
-# 
+#
 # Author:  T. Aldcroft
 # Created: 29-July-2004
 
@@ -109,7 +109,7 @@ while (<ARGV>) {
 foreach $req (qw(required_always required_when_output)) {
     foreach $file (@files) {
 	# If there is no output, skip file for 'required_when_output' checks
-	next if (not @{$log{$file}} and $req eq 'required_when_output'); 
+	next if (not @{$log{$file}} and $req eq 'required_when_output');
 
 	foreach $rexp (@{$rexp{$req}{basename($file)}}) {
 	    push @{$errors{$file}}, "** ERROR - No instance of '$rexp' in log output\n"
@@ -144,12 +144,14 @@ select STDOUT;
 foreach (@files) {
     next if /daily.\d\Z/;
     if ($opt{erase}) {
-	run "mv $_ $logs/daily.0";
-	run "touch $_";
-	run "chgrp aspect $_";
-	run "chmod g+w $_";
+		run "mv $_ $logs/daily.0";
+		run "touch $_";
+		if (grep(/\baspect\b/, `groups`)) {
+			run "chgrp aspect $_";
+			run "chmod g+w $_";
+		}
     } else {
-	run "cp $_ $logs/daily.0/";
+		run "cp $_ $logs/daily.0/";
     }
 }
 
@@ -160,7 +162,7 @@ send_mail(mail_list => $opt{notify},
 	  message   => scalar io($master_file)->slurp,
 	  loud      => $opt{loud},
 	  dryrun    => $opt{dryrun} || not $opt{email});
-  
+
 # Now check contents of log files and send alerts (probably pagers) if needed
 
 my @err_files;
@@ -182,7 +184,7 @@ if (defined $opt{alert}) {
 		my $error_cnt = 0;
 		for my $error_line (@{$errors{$file}}){
 		    $error_cnt++;
-		    # limit line prints to 
+		    # limit line prints to
 		    if ($error_cnt < ($error_line_limit+1)){
 			$out .= "$error_line";
 		    }
@@ -195,16 +197,16 @@ if (defined $opt{alert}) {
 	    }
 	}
 	$out .= "\n";
-	
-	
+
+
         send_mail(addr_list => $opt{alert},
                   subject   => "$opt{subject}: ALERT",
                   message   => $out,
                   loud      => $opt{loud},
                   dryrun    => $opt{dryrun} || not $opt{email});
-	
+
     }
-    
+
 
 
 }
@@ -255,7 +257,7 @@ Show exactly what watch_cron_logs is doing
 
 =item B<-email>
 
-Send emails (default).  Disable via config file or with -noemail.  
+Send emails (default).  Disable via config file or with -noemail.
 
 =item B<-dryrun>
 
@@ -264,14 +266,14 @@ create any files or send emails
 
 =item B<-printerror>
 
-Toggles between the two error printing options. 
+Toggles between the two error printing options.
 0 (default) prints information about which line of the file has an error and which regular expression was matched
 1 prints error text directly from the log file
 
 =item B<-config <config_file>>
 
 Configuration file controlling behavior of watch_cron_logs.  Specifies defaults
-for command line options as well as daily and alert email recipients, and 
+for command line options as well as daily and alert email recipients, and
 criteria for issuing alerts.  See sample config file below for documentation.
 
 =item B<-subject <email_subject>>
@@ -306,7 +308,7 @@ also do specific error detection and email notification.
  n_days       7                       # Number of days to accumulate daily copies of logs
  master_log   Master.log              # Name of composite master log file
  dryrun	      0                       # Dry run only
- email        1                       # Send emails                    
+ email        1                       # Send emails
 
  # Email addresses that receive daily copy of master (composite) log file
 
@@ -324,7 +326,7 @@ also do specific error detection and email notification.
 
  <check>
  	<error>
-              #    File           Expression          
+              #    File           Expression
               #  ----------      ---------------------------
  		*		Use of uninitialized value
  		*		(?<!Program caused arithmetic )Error
